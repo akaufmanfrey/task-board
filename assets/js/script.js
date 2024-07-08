@@ -1,13 +1,17 @@
-// Retrieve tasks and nextId from localStorage
-let taskList = JSON.parse(localStorage.getItem("tasks"));
-let nextId = JSON.parse(localStorage.getItem("nextId"));
+//Grab references to the important DOM elements.
+const timeDisplayEl = $('#time-display');
+const projectDisplayEl = $('#project-display');
+const projectFormEl = $('#project-form');
+const projectNameInputEl = $('#project-name-input');
+const projectTypeInputEl = $('#project-type-input');
+const projectDateInputEl = $('#taskDueDate');
 
 function readProjectsFromStorage() {
   
-    // TODO: Retrieve projects from localStorage and parse the JSON to an array. If there are no projects in localStorage, initialize an empty array and return it.
-    const projectArray = JSON.parse(localStorage.getItem('storage'));
-    if (projectArray) {
-      return projectArray
+    //Retrieve projects from localStorage and parse the JSON to an array. If there are no projects in localStorage, initialize an empty array and return it.
+    const storageArray = JSON.parse(localStorage.getItem("tasks"));
+    if (storageArray) {
+      return storageArray
     } else {
       const emptyArray = [];
       return emptyArray
@@ -15,16 +19,10 @@ function readProjectsFromStorage() {
   
 }
 
-// Todo: create a function to generate a unique task id
-function generateTaskId() {
-    localStorage.setItem('nextId', JSON.stringify(crypto.randomUUID()));
-}
-
-// Todo: create a function to create a task card
 function createTaskCard(project) {
   const taskCard = $('<div>');
   taskCard.addClass('card project-card draggable my-3');
-  taskCard.attr('data-project-id', `${project.id}`);
+  taskCard.attr('data-project-id', project.id);
   // TODO: Create a new card header element and add the classes `card-header` and `h4`. Also set the text of the card header to the project name.
   const cardHeader = $('<div>');
   cardHeader.addClass('card-header h4');
@@ -45,7 +43,8 @@ function createTaskCard(project) {
   cardDeleteBtn.addClass('btn btn-danger delete');
   cardDeleteBtn.text('Delete');
   cardDeleteBtn.attr('data-project-id', `${project.id}`);
-  cardDeleteBtn.on('click', handleDeleteProject);
+
+  cardDeleteBtn.on('click', handleDeleteTask);
 
   // ? Sets the card background color based on due date. Only apply the styles if the dueDate exists and the status is not done.
   if (project.dueDate && project.status !== 'done') {
@@ -85,13 +84,14 @@ function renderTaskList() {
   
     // TODO: Loop through projects and create project cards for each status
     for (let project of projects) {
-      const projectCard = createProjectCard(project);
+      const projectCard = createTaskCard(project);
       if (project.status === 'to-do') {
         todoList.append(projectCard);
       }
-      if (project.status === 'done') {
+      else if (project.status === 'done') {
         doneList.append(projectCard);
-      } else {
+      } 
+      else if (project.status === 'in-progress') {
         inProgressList.append(projectCard);
       }
     }
@@ -116,20 +116,89 @@ function renderTaskList() {
 
 // Todo: create a function to handle adding a new task
 function handleAddTask(event){
+  event.preventDefault();
 
+  // TODO: Get the project name, type, and due date from the form
+  const projectName = projectNameInputEl.val().trim();
+  const projectDate = projectDateInputEl.val();
+  const projectType = projectTypeInputEl.val();
+  // ? Create a new project object with the data from the form
+  const newProject = {
+    // ? Here we use a tool called `crypto` to generate a random id for our project. This is a unique identifier that we can use to find the project in the array. `crypto` is a built-in module that we can use in the browser and Nodejs.
+    id: crypto.randomUUID(),
+    name: projectName,
+    type: projectType,
+    dueDate: projectDate,
+    status: 'to-do',
+  };
+
+  // ? Pull the projects from localStorage and push the new project to the array
+  const projects = readProjectsFromStorage();
+  projects.push(newProject);
+
+  // ? Save the updated projects array to localStorage
+  localStorage.setItem('tasks', JSON.stringify(projects));
+
+  // ? Print project data back to the screen
+  renderTaskList();
+
+  // TODO: Clear the form inputs
+  projectDateInputEl.val('');
+  projectNameInputEl.val('');
+  projectTypeInputEl.val('');
 }
 
 // Todo: create a function to handle deleting a task
 function handleDeleteTask(event){
+  const projectId = $(this).attr('data-project-id');
+  const projects = readProjectsFromStorage();
 
+  // TODO: Loop through the projects array and remove the project with the matching id.
+  projects.forEach((project, index) => {
+    if (project.id === projectId) {
+      projects.splice(index, 1);
+    }
+  })
+
+  localStorage.setItem('tasks', JSON.stringify(projects));
+
+  // ? Here we use our other function to print projects back to the screen
+  renderTaskList();
 }
 
 // Todo: create a function to handle dropping a task into a new status lane
 function handleDrop(event, ui) {
+  // ? Read projects from localStorage
+  const projects = readProjectsFromStorage();
 
+  // ? Get the project id from the event
+  const taskId = ui.draggable[0].dataset.projectId;
+  console.log(ui.draggable[0]);
+  // ? Get the id of the lane that the card was dropped into
+  const newStatus = event.target.id;
+
+  for (let project of projects) {
+    // ? Find the project card by the `id` and update the project status.
+    if (project.id === taskId) {
+      project.status = newStatus;
+    }
+  }
+  // ? Save the updated projects array to localStorage (overwritting the previous one) and render the new project data to the screen.
+  localStorage.setItem('tasks', JSON.stringify(projects));
+  renderTaskList();
 }
 
 // Todo: when the page loads, render the task list, add event listeners, make lanes droppable, and make the due date field a date picker
 $(document).ready(function () {
-
+  renderTaskList();
+  projectFormEl.on('submit', handleAddTask);
+  projectDisplayEl.on('click', '.btn-delete-project', handleDeleteTask);
+  $('#taskDueDate').datepicker({
+    changeMonth: true,
+    changeYear: true,
+  });
+  $('.lane').droppable({
+    accept: '.draggable',
+    drop: handleDrop,
+  });
 });
